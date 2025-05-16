@@ -104,6 +104,11 @@ struct list {
 	((STRUCT *) ((uint8_t *) &(LIST_ELEM)->next     \
 		- offsetof (STRUCT, MEMBER.next)))
 
+
+
+
+
+      
 void list_init (struct list *);
 
 /* List traversal. */
@@ -144,17 +149,12 @@ void list_reverse (struct list *);
 /* Compares the value of two list elements A and B, given
    auxiliary data AUX.  Returns true if A is less than B, or
    false if A is greater than or equal to B. */
-typedef bool list_less_func (const struct list_elem *a,
-                             const struct list_elem *b,
-                             void *aux);
+typedef bool list_less_func (const struct list_elem *a,const struct list_elem *b,void *aux);
 
 /* Operations on lists with ordered elements. */
-void list_sort (struct list *,
-                list_less_func *, void *aux);
-void list_insert_ordered (struct list *, struct list_elem *,
-                          list_less_func *, void *aux);
-void list_unique (struct list *, struct list *duplicates,
-                  list_less_func *, void *aux);
+void list_sort (struct list *, list_less_func *, void *aux);
+void list_insert_ordered (struct list *, struct list_elem *, list_less_func *, void *aux);
+void list_unique (struct list *, struct list *duplicates, list_less_func *, void *aux);
 
 /* Max and min. */
 struct list_elem *list_max (struct list *, list_less_func *, void *aux);

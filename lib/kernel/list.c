@@ -31,8 +31,7 @@
    elements allows us to do a little bit of checking on some
    operations, which can be valuable.) */
 
-static bool is_sorted (struct list_elem *a, struct list_elem *b,
-		list_less_func *less, void *aux) UNUSED;
+static bool is_sorted (struct list_elem *a, struct list_elem *b, list_less_func *less, void *aux) UNUSED;
 
 /* Returns true if ELEM is a head, false otherwise. */
 static inline bool
@@ -321,8 +320,7 @@ list_reverse (struct list *list) {
 /* Returns true only if the list elements A through B (exclusive)
    are in order according to LESS given auxiliary data AUX. */
 static bool
-is_sorted (struct list_elem *a, struct list_elem *b,
-		list_less_func *less, void *aux) {
+is_sorted (struct list_elem *a, struct list_elem *b,list_less_func *less, void *aux) {
 	if (a != b)
 		while ((a = list_next (a)) != b)
 			if (less (a, list_prev (a), aux))
@@ -336,8 +334,7 @@ is_sorted (struct list_elem *a, struct list_elem *b,
    run.
    A through B (exclusive) must form a non-empty range. */
 static struct list_elem *
-find_end_of_run (struct list_elem *a, struct list_elem *b,
-		list_less_func *less, void *aux) {
+find_end_of_run (struct list_elem *a, struct list_elem *b, list_less_func *less, void *aux) {
 	ASSERT (a != NULL);
 	ASSERT (b != NULL);
 	ASSERT (less != NULL);
@@ -355,9 +352,7 @@ find_end_of_run (struct list_elem *a, struct list_elem *b,
    nondecreasing order according to LESS given auxiliary data
    AUX.  The output range will be sorted the same way. */
 static void
-inplace_merge (struct list_elem *a0, struct list_elem *a1b0,
-		struct list_elem *b1,
-		list_less_func *less, void *aux) {
+inplace_merge (struct list_elem *a0, struct list_elem *a1b0,struct list_elem *b1, list_less_func *less, void *aux) {
 	ASSERT (a0 != NULL);
 	ASSERT (a1b0 != NULL);
 	ASSERT (b1 != NULL);
@@ -416,8 +411,7 @@ list_sort (struct list *list, list_less_func *less, void *aux) {
    sorted according to LESS given auxiliary data AUX.
    Runs in O(n) average case in the number of elements in LIST. */
 void
-list_insert_ordered (struct list *list, struct list_elem *elem,
-		list_less_func *less, void *aux) {
+list_insert_ordered (struct list *list, struct list_elem *elem, list_less_func *less, void *aux) {
 	struct list_elem *e;
 
 	ASSERT (list != NULL);
@@ -435,8 +429,7 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
    given auxiliary data AUX.  If DUPLICATES is non-null, then the
    elements from LIST are appended to DUPLICATES. */
 void
-list_unique (struct list *list, struct list *duplicates,
-		list_less_func *less, void *aux) {
+list_unique (struct list *list, struct list *duplicates,list_less_func *less, void *aux) {
 	struct list_elem *elem, *next;
 
 	ASSERT (list != NULL);

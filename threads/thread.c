@@ -15,6 +15,99 @@
 #include "userprog/process.h"
 #endif
 
+
+/* thread.c 함수 목록 및 기능 설명
+ *
+ * // 스레드 시스템 초기화 및 시작
+ * void     thread_init(void);
+ *     └ 스레딩 시스템을 초기화하고 초기 스레드를 설정합니다.
+ *
+ * void     thread_start(void);
+ *     └ 유휴 스레드를 생성하고 선점형 스케줄링을 시작합니다.
+ *
+ * // 시간 및 통계
+ * void     thread_tick(void);
+ *     └ 타이머 틱마다 호출되어 스케줄링 및 통계(유휴/커널/유저 틱)를 업데이트합니다.
+ *
+ * void     thread_print_stats(void);
+ *     └ 수집된 틱 통계를 출력합니다.
+ *
+ * // 스레드 생성 및 종료
+ * tid_t    thread_create(const char *name, int priority, thread_func *function, void *aux);
+ *     └ 이름과 우선순위를 지정하여 커널 스레드를 생성하고 준비 큐에 추가합니다.
+ *
+ * void     thread_exit(void);
+ *     └ 현재 스레드를 종료하고 자원을 정리합니다.
+ *
+ * // 스레드 상태 전환
+ * void     thread_block(void);
+ *     └ 현재 스레드를 블록 상태로 전환하고 스케줄링합니다.
+ *
+ * void     thread_unblock(struct thread *t);
+ *     └ 지정된 스레드를 준비 상태로 전환하여 스케줄러에 추가합니다.
+ *
+ * void     thread_yield(void);
+ *     └ 현재 스레드를 준비 큐 후단에 넣고 다른 스레드를 실행합니다.
+ *
+ * // 스레드 정보 조회
+ * const char *thread_name(void);
+ *     └ 현재 실행 중인 스레드의 이름을 반환합니다.
+ *
+ * struct thread *thread_current(void);
+ *     └ 현재 실행 중인 스레드의 구조체 포인터를 반환합니다.
+ *
+ * tid_t    thread_tid(void);
+ *     └ 현재 실행 중인 스레드의 TID를 반환합니다.
+ *
+ * // 우선순위
+ * void     thread_set_priority(int new_priority);
+ *     └ 현재 스레드의 우선순위를 설정합니다.
+ *
+ * int      thread_get_priority(void);
+ *     └ 현재 스레드의 우선순위를 반환합니다.
+ *
+ * // MLFQS (고급 스케줄링) 관련 (미구현)
+ * void     thread_set_nice(int nice);
+ *     └ 스레드의 nice 값을 설정합니다.
+ *
+ * int      thread_get_nice(void);
+ *     └ 스레드의 nice 값을 반환합니다.
+ *
+ * int      thread_get_load_avg(void);
+ *     └ 시스템 부하 평균(load average)을 반환합니다.
+ *
+ * int      thread_get_recent_cpu(void);
+ *     └ 현재 스레드의 recent_cpu 값을 반환합니다.
+ *
+ * // 내부(static) 구현 함수
+ * static void kernel_thread(thread_func *function, void *aux);
+ *     └ 스레드 함수 호출 후 thread_exit()을 처리하는 래퍼입니다.
+ *
+ * static void idle(void *aux);
+ *     └ 실행할 스레드가 없을 때 대기하는 유휴 스레드입니다.
+ *
+ * static void init_thread(struct thread *t, const char *name, int priority);
+ *     └ 스레드 구조체를 초기 상태로 설정합니다.
+ *
+ * static struct thread *next_thread_to_run(void);
+ *     └ 준비 큐에서 다음에 실행할 스레드를 선택합니다.
+ *
+ * static void do_schedule(int status);
+ *     └ 현재 스레드를 지정된 상태로 전환하고 스케줄링합니다.
+ *
+ * static void schedule(void);
+ *     └ 실제로 스레드를 전환하고 thread_launch()을 호출합니다.
+ *
+ * static void thread_launch(struct thread *th);
+ *     └ 레지스터와 스택을 복원하여 새로운 스레드를 시작합니다.
+ *
+ * void     do_iret(struct intr_frame *tf);
+ *     └ IRET 명령어로 사용자 모드로 복귀하기 위한 어셈블리 래퍼입니다.
+ *
+ * static tid_t allocate_tid(void);
+ *     └ 고유한 스레드 식별자(TID)를 할당합니다.
+ */
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -27,6 +120,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -92,6 +186,19 @@ static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
 
    It is not safe to call thread_current() until this function
    finishes. */
+void priority_chcek()
+{
+	struct thread *t = list_entry(list_begin(&ready_list), struct thread, elem);
+	if (!intr_context() && t->priority > thread_get_priority() && thread_current() != idle_thread)
+	{
+		thread_yield();
+	}
+	else if (intr_context() && t->priority > thread_get_priority())
+	{
+		intr_yield_on_return();
+	}
+}
+
 void
 thread_init (void) {
 	ASSERT (intr_get_level () == INTR_OFF);
@@ -177,8 +284,7 @@ thread_print_stats (void) {
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
 tid_t
-thread_create (const char *name, int priority,
-		thread_func *function, void *aux) {
+thread_create (const char *name, int priority,thread_func *function, void *aux) {
 	struct thread *t;
 	tid_t tid;
 
@@ -206,7 +312,7 @@ thread_create (const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock (t);
-
+	priority_chcek();
 	return tid;
 }
 
@@ -232,6 +338,13 @@ thread_block (void) {
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
+static bool priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+	struct thread *a1 = list_entry(a, struct thread, elem);
+	struct thread *b1 = list_entry(b, struct thread, elem);
+	return a1->priority > b1->priority;
+}
+
 void
 thread_unblock (struct thread *t) {
 	enum intr_level old_level;
@@ -240,8 +353,9 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
 	t->status = THREAD_READY;
+	list_insert_ordered(&ready_list, &t->elem, priority, NULL);
+
 	intr_set_level (old_level);
 }
 
@@ -303,7 +417,7 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, priority, NULL);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -312,6 +426,13 @@ thread_yield (void) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+	struct list_elem *e = list_begin(&ready_list);
+	struct thread *t = list_entry(e, struct thread, elem);
+
+	if (t->priority > new_priority)
+	{
+		thread_yield();
+	}
 }
 
 /* Returns the current thread's priority. */
