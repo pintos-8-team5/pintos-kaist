@@ -119,8 +119,10 @@ sema_up (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 
-	if (!list_empty (&sema->waiters))
+	if (!list_empty (&sema->waiters)){
+		list_sort(&sema->waiters, priority, NULL);
 		thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
+	}
 	sema->value++;
 	priority_chcek();
 	intr_set_level (old_level);
@@ -342,8 +344,8 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 
 static bool donate_cmp(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-	struct thread *a1 = list_entry(a, struct thread, elem);
-	struct thread *b1 = list_entry(b, struct thread, elem);
+	struct thread *a1 = list_entry(a, struct thread, donation_elem);
+	struct thread *b1 = list_entry(b, struct thread, donation_elem);
 	return a1->priority > b1->priority;
 }
 
@@ -351,7 +353,7 @@ void donate_priority(struct lock *lock)
 {
 	thread_current()->wait_on_lock = lock;
 	struct thread *t = lock->holder;
-	list_insert_ordered(&t->donations, &thread_current()->elem, donate_cmp, NULL);
+	list_insert_ordered(&t->donations, &thread_current()->donation_elem, donate_cmp, NULL);
 	refresh_priority(t);
 }
 
@@ -363,7 +365,7 @@ void refresh_priority(struct thread *t)
 	}
 	else
 	{
-		struct thread *p = list_entry(list_begin(&t->donations), struct thread, elem);
+		struct thread *p = list_entry(list_begin(&t->donations), struct thread, donation_elem);
 		if (p->priority > t->priority)
 		{
 			t->priority = p->priority;
@@ -372,18 +374,21 @@ void refresh_priority(struct thread *t)
 }
 
 void remove_donations(struct lock *lock){
-	struct thread *t = lock->holder;
-	struct list_elem *e = &t->donations.head;
+	if (lock->holder == NULL) return; 
 
-	while (e != &t->donations.tail) {
-		struct thread *cur = list_entry(e, struct thread, elem);
-		if (cur->wait_on_lock == lock) {
+	struct thread *t = lock->holder;
+	struct list_elem *e = list_begin(&t->donations);
+
+	while (e != list_end(&t->donations))
+	{
+		struct list_elem *next = list_next(e);
+		struct thread *cur = list_entry(e, struct thread, donation_elem);
+		if (cur->wait_on_lock == lock)
+		{
+			list_remove(e);
 			cur->wait_on_lock = NULL;
-			e = list_remove(e);
 		}
-		else {
-			e = e->next;
-		}
+		e = next;
 	}
 	refresh_priority(t);
 }
