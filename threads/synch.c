@@ -31,6 +31,7 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/thread.h"
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -196,7 +197,12 @@ lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
-
+	struct thread *t = lock->holder;
+	if (lock->semaphore.value == 0)
+	{
+		donate_priority(lock);
+		refresh_priority(t);
+	}
 	sema_down (&lock->semaphore);
 	lock->holder = thread_current ();
 }
@@ -230,6 +236,9 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
+	struct thread *t = lock->holder;
+	remove_donations(lock);
+	refresh_priority(t);
 
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
@@ -329,4 +338,52 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 
 	while (!list_empty (&cond->waiters))
 		cond_signal (cond, lock);
+}
+
+static bool donate_cmp(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+	struct thread *a1 = list_entry(a, struct thread, elem);
+	struct thread *b1 = list_entry(b, struct thread, elem);
+	return a1->priority > b1->priority;
+}
+
+void donate_priority(struct lock *lock)
+{
+	thread_current()->wait_on_lock = lock;
+	struct thread *t = lock->holder;
+	list_insert_ordered(&t->donations, &thread_current()->elem, donate_cmp, NULL);
+	refresh_priority(t);
+}
+
+void refresh_priority(struct thread *t)
+{
+	if (list_empty(&t->donations))
+	{
+		t->priority = t->original_priority;
+	}
+	else
+	{
+		struct thread *p = list_entry(list_begin(&t->donations), struct thread, elem);
+		if (p->priority > t->priority)
+		{
+			t->priority = p->priority;
+		}
+	}
+}
+
+void remove_donations(struct lock *lock){
+	struct thread *t = lock->holder;
+	struct list_elem *e = &t->donations.head;
+
+	while (e != &t->donations.tail) {
+		struct thread *cur = list_entry(e, struct thread, elem);
+		if (cur->wait_on_lock == lock) {
+			cur->wait_on_lock = NULL;
+			e = list_remove(e);
+		}
+		else {
+			e = e->next;
+		}
+	}
+	refresh_priority(t);
 }

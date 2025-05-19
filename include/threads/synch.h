@@ -38,6 +38,10 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
+void remove_donations(struct lock *lock);
+void refresh_priority(struct thread *t);
+void donate_priority(struct lock *lock);
+
 /* Optimization barrier.
  *
  * The compiler will not reorder operations across an
