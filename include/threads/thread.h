@@ -8,8 +8,10 @@
 #ifdef VM
 #include "vm/vm.h"
 #endif
-
-
+#define USERPROG
+//#define FDT_PAGES 100						   // pages to allocate for file descriptor tables (thread_create, process_exit)
+//#define FDCOUNT_LIMIT FDT_PAGES * (1 << 9) // Limit fdIdx
+#define FDCOUNT_LIMIT 100
 /* States in a thread's life cycle. */
 enum thread_status {
 	THREAD_RUNNING,     /* Running thread. */
@@ -98,10 +100,14 @@ struct thread {
 	struct lock *wait_on_lock;			// 내가 기다리고 있는 락
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+	struct file *runn_file;
+	struct file *fd_table[100]; // thread_create에서 할당
+	int fd_idx;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
-	uint64_t *pml4;                     /* Page map level 4 */
+	uint64_t *pml4;
+	int exit_status; /* Page map level 4 */
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
