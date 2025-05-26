@@ -16,8 +16,6 @@ void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
 /*----------------check----------------*/
-// static bool safe_put_user(uint8_t *udst, uint8_t byte);
-// static int safe_get_user(const uint8_t *uaddr);
 void check_address(void *addr);
 /*----------------check----------------*/
 
@@ -28,7 +26,7 @@ int write(int fd, const void *buffer, unsigned size);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
 int open(const char *file);
-int add_file_to_fdt(struct file *file);
+// int add_file_to_fdt(struct file *file);
 int filesize(int fd);
 static struct file *find_file_by_fd(int fd);
 void close(int fd);
@@ -298,24 +296,24 @@ int open(const char *file)
 	return fd;
 }
 
-int add_file_to_fdt(struct file *file)
-{
-	struct thread *cur = thread_current();
-	struct file **fdt = cur->fd_table;
+// int add_file_to_fdt(struct file *file)
+// {
+// 	struct thread *cur = thread_current();
+// 	struct file **fdt = cur->fd_table;
 
-	// fd의 위치가 제한 범위를 넘지 않고, fdtable의 인덱스 위치와 일치한다면
-	while (cur->fd_idx < FDCOUNT_LIMIT && fdt[cur->fd_idx])
-	{
-		cur->fd_idx++;
-	}
+// 	// fd의 위치가 제한 범위를 넘지 않고, fdtable의 인덱스 위치와 일치한다면
+// 	while (cur->fd_idx < FDCOUNT_LIMIT && fdt[cur->fd_idx])
+// 	{
+// 		cur->fd_idx++;
+// 	}
 
-	// fdt이 가득 찼다면
-	if (cur->fd_idx >= FDCOUNT_LIMIT)
-		return -1;
+// 	// fdt이 가득 찼다면
+// 	if (cur->fd_idx >= FDCOUNT_LIMIT)
+// 		return -1;
 
-	fdt[cur->fd_idx] = file;
-	return cur->fd_idx;
-}
+// 	fdt[cur->fd_idx] = file;
+// 	return cur->fd_idx;
+// }
 
 int filesize(int fd)
 {
@@ -330,7 +328,6 @@ int filesize(int fd)
 static struct file *find_file_by_fd(int fd)
 {
 	struct thread *cur = thread_current();
-
 	return cur->fd_table[fd];
 }
 
@@ -362,41 +359,6 @@ void close(int fd)
 /*----------------handler----------------*/
 
 /*----------------check----------------*/
-
-	// static int safe_get_user(const uint8_t *uaddr)
-	// {
-	// 	if (!is_user_vaddr(uaddr))
-	// 		return -1;
-	// 	if (pml4_get_page(thread_current()->pml4, uaddr) == NULL)
-	// 		return -1;
-
-	// 	int result;
-	// 	asm volatile(
-	// 		"movzbl %1, %0"
-	// 		: "=r"(result)
-	// 		: "m"(*uaddr));
-	// 	return result;
-	// }
-
-	// static bool safe_put_user(uint8_t *udst, uint8_t byte)
-	// {
-	// 	// 유저 영역 주소인지 확인
-	// 	if (!is_user_vaddr(udst))
-	// 		return false;
-
-	// 	// 해당 주소가 매핑되어 있는지 확인
-	// 	if (pml4_get_page(thread_current()->pml4, udst) == NULL)
-	// 		return false;
-
-	// 	int error;
-	// 	asm volatile(
-	// 		"movb %b2, %1; movl $0, %0"
-	// 		: "=&a"(error), "=m"(*udst)
-	// 		: "q"(byte));
-	// 	return error == 0;
-	// }
-
-
 void check_address(void *addr)
 {
 	struct thread *cur = thread_current();
