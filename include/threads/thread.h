@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -12,13 +13,13 @@
 //#define FDT_PAGES 100						   // pages to allocate for file descriptor tables (thread_create, process_exit)
 //#define FDCOUNT_LIMIT FDT_PAGES * (1 << 9) // Limit fdIdx
 #define FDCOUNT_LIMIT 100
-/* States in a thread's life cycle. */
-enum thread_status {
-	THREAD_RUNNING,     /* Running thread. */
-	THREAD_READY,       /* Not running but ready to run. */
-	THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-	THREAD_DYING        /* About to be destroyed. */
-};
+	/* States in a thread's life cycle. */
+	enum thread_status {
+		THREAD_RUNNING, /* Running thread. */
+		THREAD_READY,	/* Not running but ready to run. */
+		THREAD_BLOCKED, /* Waiting for an event to trigger. */
+		THREAD_DYING	/* About to be destroyed. */
+	};
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -103,6 +104,13 @@ struct thread {
 	struct file *runn_file;
 	struct file *fd_table[100]; // thread_create에서 할당
 	int fd_idx;
+	struct intr_frame parent_if; /* Parent's intr_frame (for fork) */
+	struct list child_list;		 /* List of children processes */
+	struct list_elem child_elem; /* Element in parent’s child_list */
+	struct semaphore load_sema;	 /* Semaphore to signal load completion */
+	struct semaphore exit_sema;	 /* Semaphore for child exit coordination */
+	struct semaphore wait_sema;	 /* Semaphore for parent waiting on child */
+	struct file *running;		 /* File currently executed by thread */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

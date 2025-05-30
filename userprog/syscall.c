@@ -33,6 +33,9 @@ void close(int fd);
 unsigned tell(int fd);
 void seek(int fd, unsigned position);
 int read(int fd, void *buffer, unsigned size);
+int wait(int pid);
+int fork(const char *thread_name, struct intr_frame *f);
+int exec(const char *cmd_line);
 /*----------------handler----------------*/
 
 /* System call.
@@ -48,7 +51,7 @@ int read(int fd, void *buffer, unsigned size);
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-void syscall_init(void) {
+	void syscall_init(void) {
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
@@ -73,18 +76,15 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_EXIT:
 		exit(f->R.rdi); // 현재 프로세스를 종료시키는 시스템 콜
 		break;
-	// case SYS_FORK:
-	// 	f->R.rax = fork(f->R.rdi, f);
-	// 	break;
-	// case SYS_EXEC:
-	// 	if (exec(f->R.rdi) == -1)
-	// 	{
-	// 		exit(-1);
-	// 	}
-	// 	break;
-	// case SYS_WAIT:
-	// 	f->R.rax = process_wait(f->R.rdi);
-	// 	break;
+	case SYS_FORK:
+		f->R.rax = fork(f->R.rdi, f);
+		break;
+	case SYS_EXEC:
+		f->R.rax = exec((const char *)f->R.rdi);
+	 	break;
+	case SYS_WAIT:
+		f->R.rax = process_wait(f->R.rdi);
+		break;
 	case SYS_CREATE:
 		f->R.rax = create((const char *)f->R.rdi, (unsigned)f->R.rsi);
 		break; 
@@ -119,6 +119,35 @@ syscall_handler (struct intr_frame *f UNUSED) {
 }
 
 /*----------------handler----------------*/
+
+int exec(const char *cmd_line)
+{
+	/* 1) 사용자 포인터 유효성 검사 */
+	check_address(cmd_line);
+
+	/* 2) 커널 메모리에 복사본 할당 */
+	char *cmd_line_copy = palloc_get_page(0);
+	if (cmd_line_copy == NULL)
+		exit(-1);
+	strlcpy(cmd_line_copy, cmd_line, PGSIZE);
+
+	/* 3) 새 프로그램으로 교체 시도 */
+	if (process_exec(cmd_line_copy) == -1)
+		exit(-1);
+
+	/* 성공 시 절대 돌아오지 않음 */
+	NOT_REACHED();
+}
+
+int fork(const char *thread_name, struct intr_frame *f)
+{
+	return process_fork(thread_name, f);
+}
+
+int wait(int pid)
+{
+	return process_wait(pid);
+}
 
 void exit(int status)
 {
